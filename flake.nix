@@ -77,7 +77,6 @@
             src = ./.;
             hooks = {
               hlint.enable = true;
-              hpack.enable = true;
               ormolu.enable = true;
               nixpkgs-fmt.enable = true;
               nixpkgs-fmt.excludes = [
