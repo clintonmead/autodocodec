@@ -31,6 +31,8 @@ import Data.Map (Map)
 import qualified Data.Text as T
 import Data.Vector (Vector)
 import qualified Data.Vector as V
+import Data.Coerce (coerce)
+import Data.Text (Text)
 
 -- | Implement 'JSON.parseJSON' via a type's codec.
 parseJSONViaCodec :: (HasCodec a) => JSON.Value -> JSON.Parser a
@@ -59,15 +61,15 @@ parseJSONContextVia codec_ context_ =
     go :: context -> Codec context void a -> JSON.Parser a
     go value = \case
       NullCodec -> case (value :: JSON.Value) of
-        Null -> pure ()
+        Null -> coerce (pure () :: JSON.Parser ())
         _ -> typeMismatch "Null" value
       BoolCodec mname -> case mname of
-        Nothing -> parseJSON value
-        Just name -> withBool (T.unpack name) pure value
+        Nothing -> coerce (parseJSON value :: JSON.Parser Bool)
+        Just name -> coerce $ withBool (T.unpack name) pure value
       StringCodec mname -> case mname of
-        Nothing -> parseJSON value
-        Just name -> withText (T.unpack name) pure value
-      NumberCodec mname mBounds ->
+        Nothing -> coerce (parseJSON value :: JSON.Parser Text)
+        Just name -> coerce $ withText (T.unpack name) pure value
+      NumberCodec mname mBounds -> coerce $
         ( \f -> case mname of
             Nothing -> parseJSON value >>= f
             Just name -> withScientific (T.unpack name) f value
@@ -81,7 +83,7 @@ parseJSONContextVia codec_ context_ =
             Nothing -> parseJSON value >>= f
             Just name -> withArray (T.unpack name) f value
         )
-          ( \vector ->
+          ( \vector -> coerce $
               forM
                 (V.indexed (vector :: Vector JSON.Value))
                 ( \(ix, v) ->
@@ -94,13 +96,13 @@ parseJSONContextVia codec_ context_ =
             Just name -> withObject (T.unpack name) f value
         )
           (\object_ -> (`go` c) (object_ :: JSON.Object))
-      HashMapCodec c -> Compat.liftParseJSON (`go` c) (`go` listCodec c) value :: JSON.Parser (HashMap _ _)
-      MapCodec c -> Compat.liftParseJSON (`go` c) (`go` listCodec c) value :: JSON.Parser (Map _ _)
-      ValueCodec -> pure (value :: JSON.Value)
+      HashMapCodec c -> coerce (Compat.liftParseJSON (`go` c) (`go` listCodec c) value :: JSON.Parser (HashMap _ _))
+      MapCodec c -> coerce (Compat.liftParseJSON (`go` c) (`go` listCodec c) value :: JSON.Parser (Map _ _))
+      ValueCodec -> pure $ coerce value
       EqCodec expected c -> do
         actual <- go value c
         if expected == actual
-          then pure actual
+          then pure (coerce actual)
           else fail $ unwords ["Expected", show expected, "but got", show actual]
       BimapCodec f _ c -> do
         old <- go value c
@@ -110,7 +112,7 @@ parseJSONContextVia codec_ context_ =
       EitherCodec u c1 c2 ->
         let leftParser v = Left <$> go v c1
             rightParser v = Right <$> go v c2
-         in case u of
+         in coerce $ case u of
               PossiblyJointUnion ->
                 case parseEither leftParser value of
                   Right l -> pure l
@@ -141,11 +143,11 @@ parseJSONContextVia codec_ context_ =
       OptionalKeyCodec k c _ -> do
         let key = Compat.toKey k
             mValueAtKey = Compat.lookupKey key (value :: JSON.Object)
-        forM mValueAtKey $ \valueAtKey -> go (valueAtKey :: JSON.Value) c JSON.<?> Key key
+        coerce $ forM mValueAtKey $ \valueAtKey -> go (valueAtKey :: JSON.Value) c JSON.<?> Key key
       OptionalKeyWithDefaultCodec k c defaultValue _ -> do
         let key = Compat.toKey k
             mValueAtKey = Compat.lookupKey key (value :: JSON.Object)
-        case mValueAtKey of
+        coerce $ case mValueAtKey of
           Nothing -> pure defaultValue
           Just valueAtKey -> go (valueAtKey :: JSON.Value) c JSON.<?> Key key
       OptionalKeyWithOmittedDefaultCodec k c defaultValue mDoc -> go value $ OptionalKeyWithDefaultCodec k c defaultValue mDoc
