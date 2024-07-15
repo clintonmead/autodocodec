@@ -14,6 +14,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 -- Because Eq is a superclass of Hashable in newer versions.
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Autodocodec.Codec where
 
@@ -46,6 +48,7 @@ import Numeric.Natural
 import Data.Aeson.KeyMap (KeyMap)
 import qualified Data.Aeson.KeyMap as KM
 import Data.Coerce (Coercible)
+import qualified Data.Time.Format.ISO8601 as Time
 #endif
 
 -- $setup
@@ -1909,3 +1912,22 @@ codecViaAeson ::
   Text ->
   JSONCodec a
 codecViaAeson doc = bimapCodec (JSON.parseEither JSON.parseJSON) JSON.toJSON valueCodec <?> doc
+
+-- Could get this from https://hackage.haskell.org/package/either-result-0.3.1.0/docs/Control-Monad-Result.html#t:Result
+-- but just reimplementing here to avoid a dependency, as it's not exported anyway 
+-- (well it is actually, until we give this module an explicit export list).
+-- We need to do this because `Either String a` doesn't have a `MonadFail` instance, 
+-- but `Time.iso8601ParseM` expects it's return value to have a `MonadFail` instance.
+newtype Result a = Result {runResult :: Either String a}
+  deriving newtype (Functor, Applicative, Monad)
+
+instance MonadFail Result where
+  fail = Result . Left
+
+codecViaISO8601 ::
+  Time.ISO8601 a =>
+  -- | Name
+  Text ->
+  JSONCodec a
+codecViaISO8601 doc = bimapCodec (runResult . Time.iso8601ParseM) Time.iso8601Show stringCodec <?> doc
+

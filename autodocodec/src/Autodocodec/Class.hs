@@ -170,22 +170,20 @@ instance (Eq k, Hashable k, FromJSONKey k, ToJSONKey k, HasCodec v) => HasCodec 
 instance HasCodec v => HasCodec (KeyMap v) where
   codec = keyMapCodec codec
 #endif
-
--- TODO make these instances better once aeson exposes its @Data.Aeson.Parser.Time@ or @Data.Attoparsec.Time@ modules.
 instance HasCodec Day where
-  codec = codecViaAeson "Day"
+  codec = codecViaISO8601 "Day"
 
 instance HasCodec LocalTime where
-  codec = codecViaAeson "LocalTime"
+  codec = codecViaISO8601 "LocalTime"
 
 instance HasCodec UTCTime where
-  codec = codecViaAeson "LocalTime"
+  codec = codecViaISO8601 "UTCTime"
 
 instance HasCodec TimeOfDay where
-  codec = codecViaAeson "TimeOfDay"
+  codec = codecViaISO8601 "TimeOfDay"
 
 instance HasCodec ZonedTime where
-  codec = codecViaAeson "ZonedTime"
+  codec = codecViaISO8601 "ZonedTime"
 
 instance HasCodec NominalDiffTime where
   codec = dimapCodec realToFrac realToFrac (codec :: JSONCodec Scientific)
