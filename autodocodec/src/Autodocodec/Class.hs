@@ -1,9 +1,12 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 -- Because Eq is a superclass of Hashable in newer versions.
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
@@ -16,13 +19,18 @@ import Numeric.Natural
 #if MIN_VERSION_aeson(2,0,0)
 import Data.Aeson.KeyMap (KeyMap)
 #endif
+import Data.Functor.Const (Const (Const))
 import Data.Functor.Identity
 import Data.HashMap.Strict (HashMap)
 import Data.Hashable (Hashable)
 import Data.Int
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Map (Map)
+import Data.Monoid (Alt (Alt))
+import qualified Data.Monoid as Monoid
 import Data.Scientific
+import Data.Semigroup (Dual (Dual))
+import qualified Data.Semigroup as Semigroup
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Text (Text)
@@ -56,6 +64,9 @@ instance HasCodec Void where
 
 instance HasCodec Bool where
   codec = boolCodec
+
+instance HasCodec () where
+  codec = nullCodec
 
 instance HasCodec Ordering where
   codec = shownBoundedEnumCodec
@@ -119,8 +130,21 @@ instance HasCodec Natural where
 instance HasCodec JSON.Value where
   codec = valueCodec
 
-instance (HasCodec a) => HasCodec (Identity a) where
-  codec = dimapCodec runIdentity Identity codec
+deriving newtype instance (HasCodec a) => HasCodec (Identity a)
+
+deriving newtype instance (HasCodec (f a)) => HasCodec (Alt f a)
+
+deriving newtype instance (HasCodec a) => HasCodec (Dual a)
+
+deriving newtype instance (HasCodec a) => HasCodec (Semigroup.First a)
+
+deriving newtype instance (HasCodec a) => HasCodec (Semigroup.Last a)
+
+deriving newtype instance (HasCodec a) => HasCodec (Monoid.First a)
+
+deriving newtype instance (HasCodec a) => HasCodec (Monoid.Last a)
+
+deriving newtype instance (HasCodec a) => HasCodec (Const a b)
 
 instance (HasCodec a) => HasCodec (Maybe a) where
   codec = maybeCodec codec
