@@ -65,9 +65,6 @@ instance HasCodec Void where
 instance HasCodec Bool where
   codec = boolCodec
 
-instance HasCodec () where
-  codec = nullCodec
-
 instance HasCodec Ordering where
   codec = shownBoundedEnumCodec
 
